@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0d12;--bg2:#0f1520;--bg3:#141c2a;--bg4:#1a2235;
+  --border:#1e2d45;--border2:#263650;
+  --green:#00d97e;--green2:#00ff9420;--green3:#00d97e15;
+  --red:#ff3b5c;--red2:#ff3b5c20;--amber:#ffb800;--amber2:#ffb80020;
+  --blue:#4e9eff;--blue2:#4e9eff20;--purple:#a855f7;--cyan:#00e5ff;
+  --text1:#e4ecf7;--text2:#7a93b5;--text3:#3d5273;
+  --font:'SF Mono','Fira Code','Cascadia Code',monospace;
+}
+body{background:var(--bg);color:var(--text1);font-family:var(--font);font-size:12px;overflow-x:hidden}
+.app{display:grid;grid-template-rows:48px 1fr;height:100vh;min-height:600px}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:16px;position:relative;z-index:10}
+.logo{font-size:13px;font-weight:700;color:var(--cyan);letter-spacing:.08em;display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;background:var(--green);border-radius:50%;box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.85)}}
+.status-badge{font-size:10px;padding:3px 8px;border-radius:3px;border:1px solid;font-weight:600;letter-spacing:.06em}
+.badge-live{color:var(--green);border-color:var(--green);background:var(--green3)}
+.badge-warn{color:var(--amber);border-color:var(--amber);background:var(--amber2);animation:blink 1.2s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+.topbar-right{margin-left:auto;display:flex;gap:12px;align-items:center}
+.metric-pill{font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px}
+.metric-pill span{color:var(--text1);font-weight:600}
+.main{display:grid;grid-template-columns:260px 1fr 260px;gap:0;overflow:hidden}
+.panel{background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;padding:12px}
+.panel.right{border-right:none;border-left:1px solid var(--border)}
+.phead{font-size:10px;color:var(--text3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.center{display:grid;grid-template-rows:auto 1fr auto;gap:0;overflow:hidden}
+/* Threat Map */
+.map-area{position:relative;overflow:hidden;background:var(--bg)}
+canvas#netmap{width:100%;height:100%}
+/* Stats bar */
+.statsbar{background:var(--bg3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;gap:0;padding:0}
+.stat{flex:1;padding:10px 14px;border-right:1px solid var(--border);text-align:center}
+.stat:last-child{border-right:none}
+.stat-val{font-size:20px;font-weight:700;line-height:1}
+.stat-lab{font-size:9px;color:var(--text3);letter-spacing:.1em;margin-top:3px;text-transform:uppercase}
+/* Feed */
+.feed{height:180px;overflow-y:auto;padding:10px 12px;background:var(--bg)}
+.feed::-webkit-scrollbar{width:3px}
+.feed::-webkit-scrollbar-thumb{background:var(--border2)}
+.feed-item{display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);align-items:flex-start;animation:fadein .3s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.feed-time{color:var(--text3);min-width:52px;padding-top:1px}
+.feed-dot{width:6px;height:6px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.dot-crit{background:var(--red);box-shadow:0 0 6px var(--red)}
+.dot-warn{background:var(--amber)}
+.dot-info{background:var(--blue)}
+.feed-msg{color:var(--text1);line-height:1.4;font-size:11px}
+.feed-src{color:var(--text3);font-size:10px}
+/* Threat actors */
+.actor-card{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:10px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.actor-card:hover{border-color:var(--border2)}
+.actor-card.active{border-color:var(--red);background:var(--red2)}
+.actor-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.actor-name{font-size:11px;font-weight:700;color:var(--text1)}
+.actor-threat{font-size:10px;padding:2px 6px;border-radius:2px;font-weight:600}
+.threat-crit{color:var(--red);background:var(--red2)}
+.threat-high{color:var(--amber);background:var(--amber2)}
+.threat-med{color:var(--blue);background:var(--blue2)}
+.actor-detail{font-size:10px;color:var(--text2);display:flex;gap:10px;flex-wrap:wrap}
+.actor-detail b{color:var(--text1)}
+.progress-row{display:flex;align-items:center;gap:6px;margin-top:6px}
+.progress-bar{flex:1;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;transition:width .6s ease}
+.fill-red{background:var(--red)}
+.fill-amber{background:var(--amber)}
+.fill-blue{background:var(--blue)}
+.fill-green{background:var(--green)}
+.progress-pct{font-size:10px;color:var(--text2);min-width:28px;text-align:right}
+/* Anomaly chart */
+.chart-wrap{position:relative;padding:10px 0 0}
+canvas#anomchart{width:100%;height:80px}
+/* Behavior analysis */
+.behavior-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.beh-cell{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px;text-align:center}
+.beh-val{font-size:16px;font-weight:700}
+.beh-lab{font-size:9px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-top:2px}
+.geo-list{display:flex;flex-direction:column;gap:4px}
+.geo-row{display:flex;align-items:center;gap:6px;font-size:11px}
+.geo-flag{font-size:14px;width:20px}
+.geo-country{color:var(--text2);flex:1}
+.geo-count{color:var(--text1);font-weight:600}
+.geo-bar{flex:2;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.geo-fill{height:100%;border-radius:2px}
+.section-gap{margin-top:14px}
+.ctrl-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.ctrl-btn{padding:4px 10px;border-radius:3px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);font-family:var(--font);font-size:10px;cursor:pointer;transition:all .15s;letter-spacing:.04em}
+.ctrl-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue2)}
+.ctrl-btn.active{border-color:var(--green);color:var(--green);background:var(--green3)}
+.ctrl-btn.danger{border-color:var(--red);color:var(--red);background:var(--red2)}
+.label-row{display:flex;justify-content:space-between;margin-bottom:4px;font-size:10px;color:var(--text3)}
+.scan-line{position:absolute;left:0;width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--cyan) 50%,transparent);opacity:.3;pointer-events:none;animation:scan 4s linear infinite}
+@keyframes scan{0%{top:0;opacity:.4}100%{top:100%;opacity:0}}
+.mapoverlay{position:absolute;top:10px;left:10px;font-size:10px;color:var(--text3);pointer-events:none}
+.mapoverlay b{color:var(--green);font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="logo"><div class="logo-dot"></div>SHIELD·AI</div>
+    <div class="status-badge badge-live">● MONITORING</div>
+    <div id="threat-badge" class="status-badge badge-warn">⚠ THREATS DETECTED</div>
+    <div class="topbar-right">
+      <div class="metric-pill">Uptime <span>99.98%</span></div>
+      <div class="metric-pill">Packets/s <span id="pps">18,432</span></div>
+      <div class="metric-pill">Model <span style="color:var(--purple)">v4.1·LSTM</span></div>
+      <div class="metric-pill" id="clock" style="color:var(--cyan)">--:--:--</div>
+    </div>
+  </div>
+  <div class="main">
+    <!-- LEFT PANEL -->
+    <div class="panel">
+      <div class="phead">Threat Actors</div>
+      <div class="ctrl-row">
+        <button class="ctrl-btn active" onclick="filterActors('all',this)">All</button>
+        <button class="ctrl-btn" onclick="filterActors('critical',this)">Critical</button>
+        <button class="ctrl-btn" onclick="filterActors('active',this)">Active</button>
+      </div>
+      <div id="actor-list"></div>
+      <div class="phead section-gap">Geo Distribution</div>
+      <div class="geo-list" id="geo-list"></div>
+      <div class="phead section-gap">ML Confidence</div>
+      <div id="ml-bars"></div>
+    </div>
+    <!-- CENTER -->
+    <div class="center">
+      <div class="statsbar">
+        <div class="stat"><div class="stat-val" id="s-total" style="color:var(--red)">0</div><div class="stat-lab">Total Threats</div></div>
+        <div class="stat"><div class="stat-val" id="s-blocked" style="color:var(--green)">0</div><div class="stat-lab">Blocked</div></div>
+        <div class="stat"><div class="stat-val" id="s-anomaly" style="color:var(--amber)">0</div><div class="stat-lab">Anomalies</div></div>
+        <div class="stat"><div class="stat-val" id="s-risk" style="color:var(--purple)">72</div><div class="stat-lab">Risk Score</div></div>
+        <div class="stat"><div class="stat-val" id="s-ttd" style="color:var(--cyan)">1.2s</div><div class="stat-lab">Avg TTD</div></div>
+      </div>
+      <div class="map-area" id="map-area">
+        <canvas id="netmap"></canvas>
+        <div class="scan-line"></div>
+        <div class="mapoverlay">Network Topology — <b id="node-count">0</b> nodes monitored</div>
+      </div>
+      <div class="feed" id="feed"></div>
+    </div>
+    <!-- RIGHT PANEL -->
+    <div class="panel right">
+      <div class="phead">Anomaly Timeline</div>
+      <div class="chart-wrap"><canvas id="anomchart"></canvas></div>
+      <div class="phead section-gap">Behavior Analysis</div>
+      <div class="behavior-grid" id="beh-grid"></div>
+      <div class="phead section-gap">Attack Vectors</div>
+      <div id="atk-list"></div>
+      <div class="phead section-gap">Defense Controls</div>
+      <div class="ctrl-row" style="flex-direction:column;gap:6px">
+        <button class="ctrl-btn danger" onclick="deployDefense(this)">⟳  Deploy Auto-Block</button>
+        <button class="ctrl-btn" onclick="runScan(this)">⊹  Run Deep Scan</button>
+        <button class="ctrl-btn" onclick="toggleSim(this)">⏸  Pause Simulation</button>
+        <button class="ctrl-btn" onclick="exportReport()">↓  Export Report</button>
+      </div>
+      <div class="phead section-gap">Prediction Engine</div>
+      <div id="pred-list"></div>
+    </div>
+  </div>
+</div>
+<script>
+// ── State ──────────────────────────────────────────────
+let stats={total:0,blocked:0,anomaly:0,risk:72};
+let simRunning=true;
+let anomData=Array(40).fill(0);
+let nodes=[];
+let packets=[];
+let threats=[];
+let tick=0;
+
+const actors=[
+  {id:'APT-29',name:'APT-29 / Cozy Bear',threat:'CRITICAL',country:'RU',ttps:['Spear-phish','LOTL','C2 Tunneling'],confidence:94,active:true,connections:12,ioc:47},
+  {id:'LAZARUS',name:'Lazarus Group',threat:'CRITICAL',country:'KP',ttps:['Supply-chain','RaaS','0-day Exploit'],confidence:89,active:true,connections:8,ioc:31},
+  {id:'FIN7',name:'FIN7 / Carbanak',threat:'HIGH',country:'UA',ttps:['POS Malware','ATM Jackpot'],confidence:76,active:false,connections:4,ioc:18},
+  {id:'SANDWORM',name:'Sandworm Team',threat:'HIGH',country:'RU',ttps:['ICS Attack','Wiper Malware'],confidence:71,active:true,connections:6,ioc:22},
+  {id:'APT-41',name:'APT-41 / Winnti',threat:'MED',country:'CN',ttps:['Espionage','Ransomware'],confidence:62,active:false,connections:3,ioc:9},
+];
+const geoData=[
+  {flag:'🇷🇺',c:'Russia',n:847,color:'#ff3b5c'},
+  {flag:'🇨🇳',c:'China',n:512,color:'#ffb800'},
+  {flag:'🇰🇵',c:'N. Korea',n:334,color:'#ff3b5c'},
+  {flag:'🇮🇷',c:'Iran',n:198,color:'#ffb800'},
+  {flag:'🇺🇦',c:'Ukraine',n:143,color:'#4e9eff'},
+  {flag:'🇧🇷',c:'Brazil',n:89,color:'#00d97e'},
+];
+const mlModels=[
+  {name:'LSTM Seq Anomaly',acc:97.3,color:'fill-green'},
+  {name:'Isolation Forest',acc:94.1,color:'fill-blue'},
+  {name:'Graph Neural Net',acc:91.8,color:'fill-amber'},
+  {name:'Autoencoder VAE',acc:88.6,color:'fill-blue'},
+  {name:'XGBoost Ensemble',acc:85.2,color:'fill-green'},
+];
+const atkVectors=[
+  {name:'DDoS / Volumetric',pct:34,color:'fill-red'},
+  {name:'SQL Injection',pct:21,color:'fill-amber'},
+  {name:'Credential Stuffing',pct:18,color:'fill-blue'},
+  {name:'Lateral Movement',pct:15,color:'fill-amber'},
+  {name:'Data Exfiltration',pct:8,color:'fill-red'},
+  {name:'Privilege Escalation',pct:4,color:'fill-blue'},
+];
+const predictions=[
+  {label:'Ransomware wave',prob:78,eta:'~2h',color:'#ff3b5c'},
+  {label:'Brute force spike',prob:65,eta:'~45m',color:'#ffb800'},
+  {label:'Insider threat event',prob:41,eta:'~6h',color:'#4e9eff'},
+  {label:'Supply-chain probe',prob:28,eta:'~24h',color:'#a855f7'},
+];
+const feedTemplates=[
+  {lvl:'crit',msgs:['Malicious payload blocked from {ip}','C2 beacon detected — process killed','0-day exploit attempt on port 443','Privilege escalation halted on {host}','Ransomware signature matched — quarantined']},
+  {lvl:'warn',msgs:['Anomalous login: {user}@{host} at odd hour','Lateral movement detected — {host} ↔ {host2}','DNS tunneling pattern flagged','Unusual data volume — {mb}MB egress spike','Beaconing interval detected: 300s fixed']},
+  {lvl:'info',msgs:['Deep scan complete — {host} clean','Policy updated: GeoIP block RU/KP expanded','ML model retrained — accuracy +0.3%','Honeypot triggered — decoy asset accessed','Firewall rule deployed automatically']},
+];
+const ips=['45.33.32.156','185.220.101.47','94.102.49.193','172.64.11.92','104.26.3.17'];
+const hosts=['web-01','db-02','auth-srv','api-gw','k8s-node-3','ldap-01'];
+const users=['admin','svc_backup','guest99','jsmith'];
+
+// ── Init ───────────────────────────────────────────────
+function renderActors(){
+  const ul=document.getElementById('actor-list');
+  ul.innerHTML='';
+  actors.forEach(a=>{
+    const cls=a.threat==='CRITICAL'?'threat-crit':a.threat==='HIGH'?'threat-high':'threat-med';
+    const card=document.createElement('div');
+    card.className='actor-card'+(a.active?' active':'');
+    card.innerHTML=`<div class="actor-top"><div class="actor-name">${a.id}</div><div class="actor-threat ${cls}">${a.threat}</div></div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:4px">${a.name}</div>
+    <div class="actor-detail"><span>IoC: <b>${a.ioc}</b></span><span>Links: <b>${a.connections}</b></span><span>Flag: <b>${a.country}</b></span></div>
+    <div class="progress-row"><div class="progress-bar"><div class="progress-fill ${a.threat==='CRITICAL'?'fill-red':a.threat==='HIGH'?'fill-amber':'fill-blue'}" style="width:${a.confidence}%"></div></div><div class="progress-pct">${a.confidence}%</div></div>`;
+    ul.appendChild(card);
+  });
+}
+function renderGeo(){
+  const max=geoData[0].n;
+  const ul=document.getElementById('geo-list');
+  ul.innerHTML='';
+  geoData.forEach(g=>{
+    ul.innerHTML+=`<div class="geo-row"><div class="geo-flag">${g.flag}</div><div class="geo-country">${g.c}</div><div class="geo-bar"><div class="geo-fill" style="width:${Math.round(g.n/max*100)}%;background:${g.color}"></div></div><div class="geo-count">${g.n}</div></div>`;
+  });
+}
+function renderML(){
+  const el=document.getElementById('ml-bars');
+  el.innerHTML='';
+  mlModels.forEach(m=>{
+    el.innerHTML+=`<div style="margin-bottom:8px"><div class="label-row"><span style="color:var(--text2)">${m.name}</span><span style="color:var(--text1)">${m.acc}%</span></div><div class="progress-bar" style="height:4px"><div class="progress-fill ${m.color}" style="width:${m.acc}%"></div></div></div>`;
+  });
+}
+function renderAtk(){
+  const el=document.getElementById('atk-list');
+  el.innerHTML='';
+  atkVectors.forEach(v=>{
+    el.innerHTML+=`<div style="margin-bottom:8px"><div class="label-row"><span style="color:var(--text2)">${v.name}</span><span style="color:var(--text1)">${v.pct}%</span></div><div class="progress-bar" style="height:4px"><div class="progress-fill ${v.color}" style="width:${v.pct*2.5}%"></div></div></div>`;
+  });
+}
+function renderBeh(){
+  const el=document.getElementById('beh-grid');
+  const data=[
+    {val:stats.anomaly,lab:'Anomalies',c:'#ffb800'},
+    {val:Math.round(stats.total*0.62),lab:'ML Flagged',c:'#a855f7'},
+    {val:Math.round(stats.blocked*0.88),lab:'Auto-blocked',c:'#00d97e'},
+    {val:Math.round(stats.total*0.14),lab:'Escalated',c:'#ff3b5c'},
+  ];
+  el.innerHTML='';
+  data.forEach(d=>{el.innerHTML+=`<div class="beh-cell"><div class="beh-val" style="color:${d.c}">${d.val}</div><div class="beh-lab">${d.lab}</div></div>`;});
+}
+function renderPred(){
+  const el=document.getElementById('pred-list');
+  el.innerHTML='';
+  predictions.forEach(p=>{
+    el.innerHTML+=`<div style="margin-bottom:10px"><div class="label-row"><span style="color:var(--text2)">${p.label}</span><span style="color:${p.color};font-weight:600">${p.prob}%</span></div><div class="progress-bar" style="height:4px"><div class="progress-fill" style="width:${p.prob}%;background:${p.color}"></div></div><div style="font-size:10px;color:var(--text3);margin-top:2px">ETA: ${p.eta}</div></div>`;
+  });
+}
+function updateStats(){
+  document.getElementById('s-total').textContent=stats.total.toLocaleString();
+  document.getElementById('s-blocked').textContent=stats.blocked.toLocaleString();
+  document.getElementById('s-anomaly').textContent=stats.anomaly.toLocaleString();
+  document.getElementById('s-risk').textContent=stats.risk;
+}
+
+// ── Anomaly Chart ──────────────────────────────────────
+const ac=document.getElementById('anomchart');
+const actx=ac.getContext('2d');
+function drawAnom(){
+  const W=ac.offsetWidth*devicePixelRatio;const H=80*devicePixelRatio;
+  ac.width=W;ac.height=H;
+  const max=Math.max(...anomData,1);
+  actx.clearRect(0,0,W,H);
+  const bw=W/anomData.length;
+  const grad=actx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(78,158,255,.5)');grad.addColorStop(1,'rgba(78,158,255,.02)');
+  actx.beginPath();actx.moveTo(0,H);
+  anomData.forEach((v,i)=>{
+    const x=i*bw;const y=H-(v/max)*(H*.85)-4*devicePixelRatio;
+    i===0?actx.moveTo(x,y):actx.lineTo(x+bw/2,y);
+  });
+  actx.lineTo(W,H);actx.closePath();actx.fillStyle=grad;actx.fill();
+  actx.beginPath();actx.strokeStyle='#4e9eff';actx.lineWidth=1.5*devicePixelRatio;actx.lineJoin='round';
+  anomData.forEach((v,i)=>{
+    const x=i*bw+bw/2;const y=H-(v/max)*(H*.85)-4*devicePixelRatio;
+    i===0?actx.moveTo(x,y):actx.lineTo(x,y);
+  });
+  actx.stroke();
+  // Threshold line
+  actx.setLineDash([4,4]);actx.strokeStyle='rgba(255,59,92,.6)';actx.lineWidth=devicePixelRatio;
+  const thresh=H-(0.65*(H*.85));actx.beginPath();actx.moveTo(0,thresh);actx.lineTo(W,thresh);actx.stroke();actx.setLineDash([]);
+  actx.fillStyle='rgba(255,59,92,.7)';actx.font=`${9*devicePixelRatio}px monospace`;actx.fillText('THRESHOLD',4*devicePixelRatio,thresh-3*devicePixelRatio);
+}
+
+// ── Network Map ────────────────────────────────────────
+const mc=document.getElementById('netmap');const mctx=mc.getContext('2d');
+const NODE_TYPES=['Firewall','Router','Server','DB','Endpoint','Honeypot','IDS'];
+const NODE_COLORS={'Firewall':'#4e9eff','Router':'#00d97e','Server':'#a855f7','DB':'#ffb800','Endpoint':'#7a93b5','Honeypot':'#ff3b5c','IDS':'#00e5ff'};
+
+function initNodes(){
+  const W=mc.offsetWidth;const H=mc.offsetHeight;
+  nodes=[];
+  const count=22;
+  for(let i=0;i<count;i++){
+    const t=NODE_TYPES[i%NODE_TYPES.length];
+    nodes.push({
+      x:50+Math.random()*(W-100),y:40+Math.random()*(H-80),
+      type:t,color:NODE_COLORS[t],
+      r:t==='Firewall'?9:t==='Server'?7:5,
+      vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
+      compromised:false,pulsing:0
+    });
+  }
+  document.getElementById('node-count').textContent=count;
+  // Add some threat connections
+  threats=[];
+  for(let i=0;i<4;i++){
+    threats.push({src:Math.floor(Math.random()*count),dst:Math.floor(Math.random()*count),progress:Math.random(),speed:.003+Math.random()*.004,color:'rgba(255,59,92,.7)'});
+  }
+}
+function drawMap(){
+  const W=mc.width=mc.offsetWidth*devicePixelRatio;
+  const H=mc.height=mc.offsetHeight*devicePixelRatio;
+  const s=devicePixelRatio;
+  mctx.clearRect(0,0,W,H);
+  // Grid
+  mctx.strokeStyle='rgba(30,45,69,.6)';mctx.lineWidth=.5;
+  for(let x=0;x<W;x+=40*s){mctx.beginPath();mctx.moveTo(x,0);mctx.lineTo(x,H);mctx.stroke();}
+  for(let y=0;y<H;y+=40*s){mctx.beginPath();mctx.moveTo(0,y);mctx.lineTo(W,y);mctx.stroke();}
+  // Connections
+  nodes.forEach((n,i)=>{
+    nodes.slice(i+1).forEach(n2=>{
+      const d=Math.hypot(n.x-n2.x,n.y-n2.y);
+      if(d<160){
+        mctx.strokeStyle=`rgba(30,54,80,${1-d/160})`;mctx.lineWidth=.5;
+        mctx.beginPath();mctx.moveTo(n.x*s,n.y*s);mctx.lineTo(n2.x*s,n2.y*s);mctx.stroke();
+      }
+    });
+  });
+  // Threat packets in flight
+  threats.forEach(t=>{
+    const a=nodes[t.src],b=nodes[t.dst];
+    if(!a||!b)return;
+    const x=a.x+(b.x-a.x)*t.progress;const y=a.y+(b.y-a.y)*t.progress;
+    // Trail
+    mctx.strokeStyle='rgba(255,59,92,.4)';mctx.lineWidth=1*s;mctx.setLineDash([4,4]);
+    mctx.beginPath();mctx.moveTo(a.x*s,a.y*s);mctx.lineTo(b.x*s,b.y*s);mctx.stroke();mctx.setLineDash([]);
+    // Packet dot
+    mctx.fillStyle='#ff3b5c';mctx.shadowColor='#ff3b5c';mctx.shadowBlur=8*s;
+    mctx.beginPath();mctx.arc(x*s,y*s,3*s,0,Math.PI*2);mctx.fill();mctx.shadowBlur=0;
+  });
+  // Nodes
+  nodes.forEach(n=>{
+    // Pulse ring if compromised/pulsing
+    if(n.pulsing>0){
+      const alpha=n.pulsing/30;
+      mctx.strokeStyle=`rgba(255,59,92,${alpha})`;mctx.lineWidth=1;
+      mctx.beginPath();mctx.arc(n.x*s,n.y*s,(n.r+(30-n.pulsing)*0.4)*s,0,Math.PI*2);mctx.stroke();
+      n.pulsing--;
+    }
+    mctx.fillStyle=n.compromised?'#ff3b5c':n.color;
+    mctx.shadowColor=n.color;mctx.shadowBlur=(n.compromised?12:6)*s;
+    mctx.beginPath();mctx.arc(n.x*s,n.y*s,n.r*s,0,Math.PI*2);mctx.fill();mctx.shadowBlur=0;
+    // Label
+    mctx.fillStyle='rgba(122,147,181,.8)';mctx.font=`${8*s}px monospace`;mctx.textAlign='center';
+    mctx.fillText(n.type,n.x*s,(n.y+n.r+9)*s);
+  });
+}
+
+// ── Feed ───────────────────────────────────────────────
+function addFeed(){
+  const roll=Math.random();
+  const cat=roll<.25?0:roll<.6?1:2;
+  const t=feedTemplates[cat];
+  const msg=t.msgs[Math.floor(Math.random()*t.msgs.length)]
+    .replace('{ip}',ips[Math.floor(Math.random()*ips.length)])
+    .replace('{host}',hosts[Math.floor(Math.random()*hosts.length)])
+    .replace('{host2}',hosts[Math.floor(Math.random()*hosts.length)])
+    .replace('{user}',users[Math.floor(Math.random()*users.length)])
+    .replace('{mb}',Math.floor(50+Math.random()*450));
+  const now=new Date();const ts=now.toTimeString().slice(0,8);
+  const feed=document.getElementById('feed');
+  const div=document.createElement('div');div.className='feed-item';
+  const dotcls=t.lvl==='crit'?'dot-crit':t.lvl==='warn'?'dot-warn':'dot-info';
+  div.innerHTML=`<div class="feed-time">${ts}</div><div class="feed-dot ${dotcls}"></div><div class="feed-msg">${msg}</div>`;
+  feed.insertBefore(div,feed.firstChild);
+  if(feed.children.length>40)feed.removeChild(feed.lastChild);
+}
+
+// ── Clock ──────────────────────────────────────────────
+function updateClock(){document.getElementById('clock').textContent=new Date().toTimeString().slice(0,8);}
+
+// ── Main Loop ──────────────────────────────────────────
+let ppsBase=18000;
+function simTick(){
+  if(!simRunning)return;
+  tick++;
+  // Stats
+  if(tick%3===0){stats.total+=Math.floor(Math.random()*4);stats.blocked+=Math.floor(Math.random()*3);}
+  if(tick%7===0)stats.anomaly+=Math.floor(Math.random()*2);
+  stats.risk=70+Math.round(Math.sin(tick/60)*8+Math.random()*4);
+  updateStats();
+  // PPS flicker
+  if(tick%5===0){ppsBase=17000+Math.floor(Math.random()*4000);document.getElementById('pps').textContent=ppsBase.toLocaleString();}
+  // Anomaly chart
+  if(tick%3===0){
+    const spike=Math.random()<.08?Math.random()*100:0;
+    anomData.push(Math.max(0,20+Math.sin(tick/18)*18+Math.random()*25+spike));
+    if(anomData.length>40)anomData.shift();
+    drawAnom();
+  }
+  // Packets move
+  threats.forEach(t=>{
+    t.progress+=t.speed;
+    if(t.progress>=1){
+      t.progress=0;
+      const hit=nodes[t.dst];if(hit){hit.pulsing=30;}
+      t.src=Math.floor(Math.random()*nodes.length);
+      t.dst=Math.floor(Math.random()*nodes.length);
+    }
+  });
+  // Node drift
+  const W=mc.offsetWidth,H=mc.offsetHeight;
+  nodes.forEach(n=>{
+    n.x+=n.vx;n.y+=n.vy;
+    if(n.x<30||n.x>W-30)n.vx*=-1;
+    if(n.y<30||n.y>H-30)n.vy*=-1;
+  });
+  drawMap();
+  // Feed events
+  if(tick%18===0)addFeed();
+  renderBeh();
+}
+
+// ── Controls ───────────────────────────────────────────
+function filterActors(type,btn){
+  document.querySelectorAll('.ctrl-btn').forEach(b=>{if(b.closest('#actor-list')||b.textContent.match(/All|Critical|Active/))b.classList.remove('active');});
+  btn.classList.add('active');
+}
+function deployDefense(btn){btn.textContent='✓  Auto-Block Active';btn.classList.add('active');btn.classList.remove('danger');}
+let scanRunning=false;
+function runScan(btn){if(scanRunning)return;scanRunning=true;btn.textContent='⟳  Scanning…';let p=0;const iv=setInterval(()=>{p+=10;if(p>=100){clearInterval(iv);btn.textContent='✓  Scan Complete';scanRunning=false;addFeed();}},200);}
+function toggleSim(btn){simRunning=!simRunning;btn.textContent=simRunning?'⏸  Pause Simulation':'▶  Resume Simulation';}
+function exportReport(){const a=document.createElement('a');a.href='data:text/plain,SHIELD·AI Report\n'+new Date()+'\nTotal Threats: '+stats.total+'\nBlocked: '+stats.blocked+'\nAnomalies: '+stats.anomaly+'\nRisk Score: '+stats.risk;a.download='threat-report.txt';a.click();}
+
+// ── Boot ───────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    initNodes();
+    renderActors();renderGeo();renderML();renderAtk();renderPred();
+    drawAnom();drawMap();
+    setInterval(simTick,100);
+    setInterval(updateClock,1000);updateClock();
+    // Seed feed
+    for(let i=0;i<6;i++)addFeed();
+  },100);
+});
+window.addEventListener('resize',()=>{initNodes();drawMap();drawAnom();});
+</script>
+</body>
+</html>
